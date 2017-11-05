@@ -7,21 +7,55 @@ import scala.reflect.ClassTag
 import scala.reflect.macros.blackbox
 import scala.util.control.NonFatal
 
+/**
+ * Base type class for encoding or decoding values to/from BSON.
+ *
+ * Notice that the `encode` method returns `Any` and the `decode` method
+ * takes `Any`. This is because the BSONObject implementation stores its elements
+ * dynamically as Java objects. As a result, usually, you won't want to use the `encode` and
+ * `decode` methods directly. Instead, see the [[BSONObjectCodec]] and its
+ * `encodeObject` and `decodeObject` methods.
+ */
 trait BSONCodec[A] {
+
+  /** Encode a value to its BSON representation. */
   def encode(a: A): Any
+
+  /** Decode a value from BSON, capturing failures as Left. */
   def decode(o: Any): Either[Throwable, A]
+
+  /** Update a BSONObject field with an encoded value; used for building BSONObjectCodec instances. */
+  def put(o: BSONObject, k: String, a: A): Unit
+
+  /** Decode a value from a BSONObject field; used for building BSONObjectCodec instances. */
+  def get(o: BSONObject, k: String): Either[Throwable, A]
+}
+
+/** Provides default implementations for `put` and `get`. */
+trait DefaultBSONCodec[A] extends BSONCodec[A] {
+
+  override def put(o: BSONObject, k: String, a: A): Unit = o.put(k, encode(a))
+
+  override def get(o: BSONObject, k: String): Either[Throwable, A] = o.get(k) match {
+    case null => Left(new NoSuchElementException(k))
+    case v => decode(v)
+  }
 }
 
 object BSONCodec extends BSONCodecInstances {
 
   def apply[A : BSONCodec]: BSONCodec[A] = implicitly
 
-  def instance[A](e: A => Any, d: Any => Either[Throwable, A]): BSONCodec[A] = new BSONCodec[A] {
+  def instance[A](e: A => Any, d: Any => Either[Throwable, A]): BSONCodec[A] = new DefaultBSONCodec[A] {
     override def encode(a: A): Any = e(a)
     override def decode(o: Any): Either[Throwable, A] = d(o)
   }
 
-  def unsafeDerive[A](implicit ct: ClassTag[A]): BSONCodec[A] = new BSONCodec[A] {
+  /**
+   * Derive an instance of BSONCodec[A] using runtime type checking.
+   * This should only be used for non-object and non-container types like String, Int, etc.
+   */
+  def unsafeDerive[A](implicit ct: ClassTag[A]): BSONCodec[A] = new DefaultBSONCodec[A] {
     override def encode(a: A): Any = a
     override def decode(o: Any): Either[Throwable, A] = o match {
       case ct(a) => Right(a)
@@ -48,21 +82,36 @@ trait BSONCodecInstances {
     BSONObjectCodec.instance(
       m => {
         val res = new BasicBSONObject(m.size)
-        m.foreach { case (k, v) => res.put(k, codec.encode(v).asInstanceOf[AnyRef]) }
+        m.foreach { case (k, v) => codec.put(res, k, v) }
         res
       },
       o =>
         try {
           Right(o.keySet.iterator.asScala.map(k =>
-            (k, codec.decode(o.get(k)).fold(throw _, identity))
+            (k, codec.get(o, k).fold(throw _, identity))
           ).toMap)
         } catch {
           case NonFatal(e) => Left(e)
         }
     )
+
+  implicit def bsonOption[A](implicit codec: BSONCodec[A]): BSONCodec[Option[A]] = new BSONCodec[Option[A]] {
+
+    override def encode(a: Option[A]): Any = a.fold(null: Any)(codec.encode)
+
+    override def decode(o: Any): Either[Throwable, Option[A]] = o match {
+      case null => Right(None)
+      case _ => codec.decode(o).right.map(Some(_))
+    }
+
+    override def put(o: BSONObject, k: String, a: Option[A]): Unit = a.foreach { o.put(k, _) }
+
+    override def get(o: BSONObject, k: String): Either[Throwable, Option[A]] = decode(o.get(k))
+  }
 }
 
-trait BSONListCodec[A] extends BSONCodec[A] {
+/** Type class for encoding/decoding BSON lists. */
+trait BSONListCodec[A] extends DefaultBSONCodec[A] {
   def encodeList(a: A): util.List[_]
   def decodeList(xs: util.List[_]): Either[Throwable, A]
 
@@ -83,6 +132,11 @@ object BSONListCodec {
     override def decodeList(xs: util.List[_]): Either[Throwable, A] = d(xs)
   }
 
+  /**
+   * Build a BSONListCodec for L[A] to/from iterators.
+   * Types like scala.List have expensive .size calls, so you can provide
+   * `noSizeHint` to avoid iterating the List multiple times.
+   */
   def fromIterator[L[_], A](
     sizeHint: L[A] => Int,
     toIterator: L[A] => Iterator[A],
@@ -107,7 +161,8 @@ object BSONListCodec {
   val noSizeHint: Any => Int = _ => 0
 }
 
-trait BSONObjectCodec[A] extends BSONCodec[A] {
+/** Type class for encoding/decoding BSON objects. */
+trait BSONObjectCodec[A] extends DefaultBSONCodec[A] {
   def encodeObject(a: A): BSONObject
   def decodeObject(o: BSONObject): Either[Throwable, A]
 
@@ -153,11 +208,11 @@ object BSONCodecMacros {
     val BasicBSONObjectClass = typeOf[BasicBSONObject].typeSymbol
 
     val encodeFields = fields.map { case (name, nameStr, typ) =>
-      q"res.append($nameStr, $BSONCodecCompanion[$typ].encode(a.$name))"
+      q"$BSONCodecCompanion[$typ].put(res, $nameStr, a.$name)"
     }
 
     val decodeFields = fields.map { case (name, nameStr, typ) =>
-      fq"$name <- $BSONCodecCompanion[$typ].decode(o.get($nameStr)).right"
+      fq"$name <- $BSONCodecCompanion[$typ].get(o, $nameStr).right"
     }
 
     q"""
