@@ -1,27 +1,27 @@
 package io.estatico.bson.test
 
-import java.util
-import org.bson.{BasicBSONObject, BSONObject}
-import org.bson.types.BasicBSONList
+import org.bson._
 import org.scalatest.{FlatSpec, Matchers}
 
 trait BaseSpec extends FlatSpec with Matchers {
 
-  protected def bsonObject(kvs: (String, Any)*): BSONObject = {
-    val o = new BasicBSONObject(kvs.length)
-    kvs.foreach { case (k, v) => o.put(k, v.asInstanceOf[AnyRef]) }
+  protected def bDoc(kvs: (String, BsonValue)*): BsonDocument = {
+    val o = new BsonDocument()
+    kvs.foreach { case (k, v) => o.put(k, v) }
     o
   }
 
-  protected def bsonList(xs: Any*): BasicBSONList = {
-    val res = new BasicBSONList
-    xs.foreach { x => res.add(x.asInstanceOf[AnyRef]) }
-    res
-  }
-
-  protected def javaList(xs: Any*): util.List[Any] = {
-    val res = new util.ArrayList[Any](xs.length)
+  protected def bArray(xs: BsonValue*): BsonArray = {
+    val res = new BsonArray()
     xs.foreach { x => res.add(x) }
     res
   }
+
+  protected def bNull: BsonValue = BsonNull.VALUE
+
+  protected def bInt(n: Int) = new BsonInt32(n)
+
+  protected def bLong(n: Int) = new BsonInt64(n)
+
+  protected def bString(s: String) = new BsonString(s)
 }
