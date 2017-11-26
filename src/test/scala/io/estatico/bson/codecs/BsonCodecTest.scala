@@ -101,7 +101,7 @@ class BsonCodecTest extends BaseSpec {
     decoded5.isLeft shouldBe true
   }
 
-  it should "give path to decode failure" in {
+  it should "give path to decode failure for List" in {
     @DeriveBson case class Foo(bar: Bar)
     @DeriveBson case class Bar(baz: Baz)
     @DeriveBson case class Baz(quux: List[Int])
@@ -109,11 +109,48 @@ class BsonCodecTest extends BaseSpec {
     val decoded = BsonCodec[Foo].decode(bDoc(
       "bar" -> bDoc(
         "baz" -> bDoc(
-          "quux" -> bArray(bInt(1), bString("nope"), bInt(3))
+          "quux" -> bArray(
+            bInt(1),
+            bString("nope"),
+            bInt(3)
+          )
         )
       )
     ))
 
     decoded.left.get.fields shouldBe Vector("bar", "baz", "quux", "1")
+  }
+
+  it should "give path to decode failure for Option" in {
+    @DeriveBson case class Foo(bar: Bar)
+    @DeriveBson case class Bar(baz: Baz)
+    @DeriveBson case class Baz(quux: Option[Int])
+    val decoded = BsonCodec[Foo].decode(bDoc(
+      "bar" -> bDoc(
+        "baz" -> bDoc(
+          "quux" -> bString("no")
+        )
+      )
+    ))
+    decoded.left.get.fields shouldBe Vector("bar", "baz", "quux")
+  }
+
+  it should "give path to decode failure for Map" in {
+    @DeriveBson case class Foo(bar: Bar)
+    @DeriveBson case class Bar(baz: Baz)
+    @DeriveBson case class Baz(quux: Map[String, Int])
+
+    val decoded = BsonCodec[Foo].decode(bDoc(
+      "bar" -> bDoc(
+        "baz" -> bDoc(
+          "quux" -> bDoc(
+            "spam" -> bInt(1),
+            "eggs" -> bString("nope")
+          )
+        )
+      )
+    ))
+
+    decoded.left.get.fields shouldBe Vector("bar", "baz", "quux", "eggs")
   }
 }

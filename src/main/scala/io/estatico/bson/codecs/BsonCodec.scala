@@ -129,10 +129,7 @@ trait BsonCodecInstances {
       o =>
         try {
           Right(o.keySet.iterator.asScala.map { k =>
-            val v = codec.get(o, k).fold(
-              e => throw e.addField(k),
-              identity
-            )
+            val v = codec.get(o, k).fold(throw _, identity)
             (k, v)
           }.toMap)
         } catch {
@@ -140,7 +137,6 @@ trait BsonCodecInstances {
         }
     )
 
-  // TODO: I have a feeling that this doesn't get the field path right when building a DecodeFailure
   implicit def bsonOption[A](implicit codec: BsonCodec[A]): Aux[Option[A], BsonValue] = new BsonCodec[Option[A]] {
 
     type Repr = BsonValue
@@ -157,6 +153,6 @@ trait BsonCodecInstances {
       a.foreach { x => o.put(k, codec.encode(x)) }
 
     override def get(o: BsonDocument, k: String): DecodeResult[Option[A]] =
-      decode(o.get(k))
+      decode(o.get(k)).left.map(_.addField(k))
   }
 }
