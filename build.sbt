@@ -18,3 +18,5 @@ libraryDependencies ++= Seq(
   "org.mongodb" % "mongo-java-driver" % "3.5.0",
   "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 )
+
+addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)

@@ -7,9 +7,7 @@ class BsonCodecTest extends BaseSpec {
   behavior of classOf[BsonCodec[_]].getName
 
   it should "derive case classes" in {
-    case class Foo(a: Int, b: String)
-
-    implicit val codec = BsonCodec.deriveDocument[Foo]
+    @DeriveBson case class Foo(a: Int, b: String)
 
     val encoded = BsonCodec[Foo].encode(Foo(12, "ha"))
     encoded shouldBe bDoc("a" -> bInt(12), "b" -> bString("ha"))
@@ -73,8 +71,7 @@ class BsonCodecTest extends BaseSpec {
   }
 
   it should "omit null Option fields" in {
-    case class Foo(a: Option[String], b: Option[Int])
-    implicit val codec = BsonCodec.deriveDocument[Foo]
+    @DeriveBson case class Foo(a: Option[String], b: Option[Int])
 
     val encoded1 = BsonCodec[Foo].encode(Foo(Some("abba"), Some(2)))
     encoded1 shouldBe bDoc("a" -> bString("abba"), "b" -> bInt(2))
@@ -105,12 +102,9 @@ class BsonCodecTest extends BaseSpec {
   }
 
   it should "give path to decode failure" in {
-    case class Foo(bar: Bar)
-    case class Bar(baz: Baz)
-    case class Baz(quux: List[Int])
-    implicit val bsonBaz = BsonCodec.deriveDocument[Baz]
-    implicit val bsonBar = BsonCodec.deriveDocument[Bar]
-    implicit val bsonFoo = BsonCodec.deriveDocument[Foo]
+    @DeriveBson case class Foo(bar: Bar)
+    @DeriveBson case class Bar(baz: Baz)
+    @DeriveBson case class Baz(quux: List[Int])
 
     val decoded = BsonCodec[Foo].decode(bDoc(
       "bar" -> bDoc(

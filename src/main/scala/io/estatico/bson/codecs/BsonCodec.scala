@@ -1,9 +1,9 @@
 package io.estatico.bson.codecs
 
+import io.estatico.bson.macros.BsonCodecMacros
 import org.bson._
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
-import scala.reflect.macros.blackbox
 
 /** Type class for encoding or decoding values to/from Bson. */
 trait BsonCodec[A] {
@@ -158,46 +158,5 @@ trait BsonCodecInstances {
 
     override def get(o: BsonDocument, k: String): DecodeResult[Option[A]] =
       decode(o.get(k))
-  }
-}
-
-object BsonCodecMacros {
-
-  def deriveDocument[A : c.WeakTypeTag](c: blackbox.Context): c.universe.Tree = {
-
-    import c.universe._
-
-    val A = weakTypeOf[A]
-
-    if (!A.typeSymbol.isClass || !A.typeSymbol.asClass.isCaseClass) {
-      c.abort(c.enclosingPosition, s"Can only derive a BsonDocument codec for case classes")
-    }
-
-    val fields = A.decls.collect {
-      case m: MethodSymbol if m.isCaseAccessor => (m.name, m.name.decodedName.toString, m.returnType)
-    }.toVector
-
-    val BsonCodecClass = typeOf[BsonCodec[_]].typeSymbol
-    val BsonCodecCompanion = BsonCodecClass.companion
-    val BsonDocumentClass = typeOf[BsonDocument].typeSymbol
-
-    val encodeFields = fields.map { case (name, nameStr, typ) =>
-      q"$BsonCodecCompanion[$typ].put(res, $nameStr, a.$name)"
-    }
-
-    val decodeFields = fields.map { case (name, nameStr, typ) =>
-      fq"$name <- $BsonCodecCompanion[$typ].get(o, $nameStr).right"
-    }
-
-    q"""
-      $BsonCodecCompanion[$BsonDocumentClass].iflatMap(
-        a => {
-          val res = new $BsonDocumentClass()
-          ..$encodeFields
-          res
-        },
-        o => for (..$decodeFields) yield new $A(..${fields.map(_._1)})
-      ): $BsonCodecCompanion.Aux[$A, $BsonDocumentClass]
-    """
   }
 }

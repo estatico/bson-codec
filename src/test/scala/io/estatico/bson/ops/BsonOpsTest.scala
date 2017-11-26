@@ -1,6 +1,6 @@
 package io.estatico.bson.ops
 
-import io.estatico.bson.codecs.BsonCodec
+import io.estatico.bson.codecs.DeriveBson
 import io.estatico.bson.test.BaseSpec
 import org.bson.BsonValue
 
@@ -8,8 +8,7 @@ class BsonOpsTest extends BaseSpec {
 
   behavior of "BsonOps"
 
-  case class Foo(a: Int, b: String)
-  implicit val codec = BsonCodec.deriveDocument[Foo]
+  @DeriveBson case class Foo(a: Int, b: String)
 
   it should "encode bson documents" in {
     val encoded = Foo(12, "ha").toBson
