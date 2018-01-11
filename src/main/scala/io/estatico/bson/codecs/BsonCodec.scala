@@ -27,12 +27,12 @@ trait BsonCodec[A] {
 
   def imap[B](e: B => A, d: A => B): BsonCodec.Aux[B, Repr] = BsonCodec.instance[B, Repr](
     b => encode(e(b)),
-    bson => decode(bson).map(d)
+    bson => decode(bson).right.map(d)
   )
 
   def iflatMap[B](e: B => A, d: A => BsonCodec.DecodeResult[B]): BsonCodec.Aux[B, Repr] = BsonCodec.instance[B, Repr](
     b => encode(e(b)),
-    bson => decode(bson).flatMap(d)
+    bson => decode(bson).right.flatMap(d)
   )
 }
 
