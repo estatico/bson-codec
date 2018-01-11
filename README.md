@@ -2,6 +2,9 @@
 
 BSON codec type classes and derivation for Scala
 
+[![Build Status](https://travis-ci.org/estatico/bson-codec.svg?branch=master)](https://travis-ci.org/estatico/bson-codec)
+[![Maven Central](https://img.shields.io/maven-central/v/io.estatico/bson-codec_2.12.svg)](https://maven-badges.herokuapp.com/maven-central/io.estatico/bson-codec_2.12)
+
 ## Usage
 
 This library provides a `BsonCodec` type class for encoding and decoding BSON values.
