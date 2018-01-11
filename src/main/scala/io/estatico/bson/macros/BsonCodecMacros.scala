@@ -50,12 +50,16 @@ object BsonCodecMacros {
 
     val BsonCodecClass = typeOf[BsonCodec[_]].typeSymbol.asType
     val BsonCodecCompanion = BsonCodecClass.companion
+    val BsonDocumentClass = typeOf[BsonDocument].typeSymbol
 
     def mkInstance(clsDef: ClassDef): Tree = {
       val typeName = clsDef.name
-      val instName = TermName("fromConfObj" + typeName.decodedName)
+      val instName = TermName("bsonCodec" + typeName.decodedName)
       if (clsDef.tparams.isEmpty) {
-        q"implicit val $instName: $BsonCodecClass[$typeName] = $BsonCodecCompanion.deriveDocument[$typeName]"
+        q"""
+          implicit val $instName: $BsonCodecCompanion.Aux[$typeName, $BsonDocumentClass] =
+            $BsonCodecCompanion.deriveDocument[$typeName]
+        """
       } else {
         val tparams = clsDef.tparams
         val tparamNames = tparams.map(_.name)
@@ -67,7 +71,9 @@ object BsonCodecMacros {
         val params = mkImplicitParams(BsonCodecClass)
         val fullType = tq"$typeName[..$tparamNames]"
         q"""
-          implicit def $instName[..$tparams](implicit ..$params): $BsonCodecClass[$fullType] =
+          implicit def $instName[..$tparams](
+            implicit ..$params
+          ): $BsonCodecCompanion.Aux[$fullType, $BsonDocumentClass] =
            $BsonCodecCompanion.deriveDocument[$fullType]
         """
       }
