@@ -1,6 +1,6 @@
 package io.estatico.bson.ops
 
-import io.estatico.bson.codecs.DeriveBson
+import io.estatico.bson.DeriveBson
 import io.estatico.bson.test.BaseSpec
 import org.bson.BsonValue
 

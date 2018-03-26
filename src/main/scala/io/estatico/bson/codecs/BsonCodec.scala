@@ -5,25 +5,49 @@ import org.bson._
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
-/** Type class for encoding or decoding values to/from Bson. */
-trait BsonCodec[A] {
+trait BsonEncoder[A] {
 
   type Repr <: BsonValue
 
   /** Encode a value to its BSON representation. */
   def encode(a: A): Repr
 
-  /** Decode a value from BSON, capturing failures as Left. */
-  def decode(o: BsonValue): BsonCodec.DecodeResult[A]
-
   /** Update a BSONObject field with an encoded value; used for building BSONObjectCodec instances. */
   def put(o: BsonDocument, k: String, a: A): Unit = o.put(k, encode(a))
+}
+
+trait BsonPartialEncoder[A] {
+
+  type Repr <: BsonValue
+
+  /** Encode a value to its BSON representation. */
+  def encode(a: A): BsonPartialEncoder.EncodeResult[Repr]
+
+  /** Update a BSONObject field with an encoded value; used for building BSONObjectCodec instances. */
+  def put(o: BsonDocument, k: String, a: A): BsonPartialEncoder.EncodeResult[Unit] =
+    encode(a).right.map(o.put(k, _))
+}
+
+object BsonPartialEncoder {
+  type EncodeResult[A] = Either[CodecFailure, A]
+}
+
+trait BsonDecoder[A] {
+
+  /** Decode a value from BSON, capturing failures as Left. */
+  def decode(o: BsonValue): BsonCodec.DecodeResult[A]
 
   /** Decode a value from a BSONObject field; used for building BSONObjectCodec instances. */
   def get(o: BsonDocument, k: String): BsonCodec.DecodeResult[A] = o.get(k) match {
     case null => Left(DecodeFailure(s"Missing field: $k", Vector(k)))
     case v => decode(v).left.map(_.insertField(k))
   }
+}
+
+trait BsonPartialCodec[A] extends BsonPartialEncoder[A] with BsonDecoder[A]
+
+/** Type class for encoding or decoding values to/from Bson. */
+trait BsonCodec[A] extends BsonEncoder[A] with BsonDecoder[A] {
 
   def imap[B](e: B => A, d: A => B): BsonCodec.Aux[B, Repr] = BsonCodec.instance[B, Repr](
     b => encode(e(b)),
@@ -53,10 +77,7 @@ object BsonCodec extends BsonCodecInstances {
     override def decode(o: BsonValue): DecodeResult[A] = d(o)
   }
 
-  /**
-   * Derive an instance of BSONCodec[A] using runtime type checking.
-   * This should only be used for non-object and non-container types like String, Int, etc.
-   */
+  /** Derive an instance of BSONCodec[A] using runtime type checking for a BsonValue. */
   def deriveValue[A <: BsonValue](implicit ct: ClassTag[A]): Aux[A, A] = new BsonCodec[A] {
 
     type Repr = A
@@ -98,7 +119,7 @@ object BsonCodec extends BsonCodecInstances {
 
 trait BsonCodecInstances {
 
-  import BsonCodec.{apply, Aux, DecodeResult, deriveValue, fromIterator}
+  import BsonCodec._
 
   implicit val bsonBsonInt32: Aux[BsonInt32, BsonInt32] = deriveValue
   implicit val bsonBsonInt64: Aux[BsonInt64, BsonInt64] = deriveValue

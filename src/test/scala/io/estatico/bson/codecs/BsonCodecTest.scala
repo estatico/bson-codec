@@ -1,5 +1,6 @@
 package io.estatico.bson.codecs
 
+import io.estatico.bson.DeriveBson
 import io.estatico.bson.test.BaseSpec
 
 class BsonCodecTest extends BaseSpec {

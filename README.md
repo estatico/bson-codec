@@ -12,9 +12,9 @@ This library provides a `BsonCodec` type class for encoding and decoding BSON va
 ```scala
 scala> import io.estatico.bson._
 
-scala> case class Person(name: String, age: Int)
+scala> @DeriveBson case class Person(name: String, age: Int)
 
-scala> implicit val bsonPerson = BsonCodec.deriveDocument[Person]
+scala> val bsonPerson = BsonCodec.deriveDocument[Person]
 bsonPerson: io.estatico.bson.BsonCodec.Aux[Person,org.bson.BsonDocument] = io.estatico.bson.codecs.BsonCodec$$anon$1@5ad87570
 
 scala> val me = Person("Cary", 29)
