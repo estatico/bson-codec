@@ -17,7 +17,7 @@ scalacOptions ++= Seq(
 libraryDependencies ++= Seq(
   scalaOrganization.value % "scala-reflect" % scalaVersion.value % Provided,
   scalaOrganization.value % "scala-compiler" % scalaVersion.value % Provided,
-  "org.mongodb" % "mongo-java-driver" % "3.5.0",
+  "org.mongodb.scala" %% "mongo-scala-driver" % "4.3.3",
   "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 )
 
