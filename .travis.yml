@@ -2,7 +2,7 @@ language: scala
 
 matrix:
   include:
-  - scala: 2.12.4
+  - scala: 2.12.10
     jdk: oraclejdk8
 
 scala:
